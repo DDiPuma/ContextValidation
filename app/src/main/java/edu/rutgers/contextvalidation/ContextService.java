@@ -12,7 +12,7 @@ import android.os.IBinder;
 import java.util.Calendar;
 
 public class ContextService extends JobService {
-    private final Context mContext;
+    private Context mContext;
     private final WifiReceiver mWifiReceiver;
     private final IntentFilter mWifiScanFilter;
 
@@ -23,11 +23,15 @@ public class ContextService extends JobService {
     private int mDayOfWeek;
     private DAY_PERIOD mTimeOfDay;
 
-    public ContextService(Context context) {
+    public ContextService() {
+        super();
         mWifiReceiver = new WifiReceiver();
+        mWifiReceiver.setmContextService(this);
         mWifiScanFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
-        mContext = context;
+        mContext = null;
     }
+
+    public void setmContext(Context context) { mContext = context; }
 
     @Override
     public boolean onStartJob(JobParameters jobParameters) {
