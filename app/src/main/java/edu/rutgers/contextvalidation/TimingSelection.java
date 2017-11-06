@@ -13,5 +13,9 @@ public class TimingSelection extends AppCompatActivity {
         // Set up GUI stuff
     }
 
-    // Deal with persistent job schedule settings
+    // TODO - Deal with persistent job schedule settings?
+
+    // TODO - Set up button listeners which schedule jobs
+
+    // TODO - create classes for database, data, job, wifi listening, etc.
 }
