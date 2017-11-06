@@ -5,6 +5,7 @@ package edu.rutgers.contextvalidation;
  */
 
 public enum DAY_PERIOD {
+    INVALID,
     MORNING,
     NOON,
     AFTERNOON,

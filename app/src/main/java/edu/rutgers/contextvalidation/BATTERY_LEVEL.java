@@ -5,6 +5,7 @@ package edu.rutgers.contextvalidation;
  */
 
 public enum BATTERY_LEVEL {
+    INVALID,
     LOW,
     MEDIUM,
     HIGH,
