@@ -10,6 +10,7 @@ import android.os.BatteryManager;
 import android.os.IBinder;
 
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 public class ContextService extends JobService {
     private Context mContext;
@@ -69,7 +70,7 @@ public class ContextService extends JobService {
         }
 
         // Get date/time/day data
-        Calendar cal = new Calendar();
+        Calendar cal = new GregorianCalendar();
         int mDayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
 
