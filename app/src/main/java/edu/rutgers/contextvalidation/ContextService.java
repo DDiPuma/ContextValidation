@@ -5,17 +5,20 @@ import android.app.job.JobService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
-import android.os.IBinder;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ContextService extends JobService {
-    private Context mContext;
     private final WifiReceiver mWifiReceiver;
     private final IntentFilter mWifiScanFilter;
+    private final WifiManager mWifiManager;
 
     private boolean mIsWifiDataAvailable;
 
@@ -29,10 +32,8 @@ public class ContextService extends JobService {
         mWifiReceiver = new WifiReceiver();
         mWifiReceiver.setmContextService(this);
         mWifiScanFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
-        mContext = null;
+        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
     }
-
-    public void setmContext(Context context) { mContext = context; }
 
     @Override
     public boolean onStartJob(JobParameters jobParameters) {
@@ -45,9 +46,8 @@ public class ContextService extends JobService {
 
 
         // Start scan for WiFi state
-        mContext.registerReceiver(mWifiReceiver, mWifiScanFilter);
-        WifiManager wifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
-        wifiManager.startScan();
+        this.registerReceiver(mWifiReceiver, mWifiScanFilter);
+        mWifiManager.startScan();
 
         // Get battery data
         IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -99,11 +99,15 @@ public class ContextService extends JobService {
         unregisterReceiver(mWifiReceiver);
 
         // TODO - send data to database
+
+        Logger.getAnonymousLogger().log(Level.INFO, "The hour is: " + Integer.toString(mDayOfWeek));
+
         return false;
     }
 
     public void wifiScanComplete() {
-        // TODO - handle data
+        List<ScanResult> results = mWifiManager.getScanResults();
+        // TODO - extract scan results that we need
     }
 
 
