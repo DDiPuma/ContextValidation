@@ -2,23 +2,23 @@ package edu.rutgers.contextvalidation;
 
 import android.app.job.JobParameters;
 import android.app.job.JobService;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
+import android.util.Log;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class ContextService extends JobService {
-    private final WifiReceiver mWifiReceiver;
-    private final IntentFilter mWifiScanFilter;
-    private final WifiManager mWifiManager;
+    private BroadcastReceiver mWifiReceiver;
+    private IntentFilter mWifiScanFilter;
+    private WifiManager mWifiManager;
 
     private boolean mIsWifiDataAvailable;
 
@@ -27,16 +27,18 @@ public class ContextService extends JobService {
     private int mDayOfWeek;
     private DAY_PERIOD mTimeOfDay;
 
-    public ContextService() {
-        super();
-        mWifiReceiver = new WifiReceiver();
-        mWifiReceiver.setmContextService(this);
-        mWifiScanFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
-        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-    }
+    private JobParameters mParams;
 
     @Override
     public boolean onStartJob(JobParameters jobParameters) {
+        mWifiReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                wifiScanComplete();
+            }
+        };
+        mWifiScanFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+
         // Null out all data
         mIsWifiDataAvailable = false;
         mChargeStatus = -1;
@@ -44,9 +46,14 @@ public class ContextService extends JobService {
         mDayOfWeek = -1;
         mTimeOfDay = DAY_PERIOD.INVALID;
 
+        mParams = jobParameters;
+
+        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+
+        Log.i("ContextService", "Starting job");
 
         // Start scan for WiFi state
-        this.registerReceiver(mWifiReceiver, mWifiScanFilter);
+        getApplicationContext().registerReceiver(mWifiReceiver, mWifiScanFilter);
         mWifiManager.startScan();
 
         // Get battery data
@@ -68,7 +75,7 @@ public class ContextService extends JobService {
         else if (batteryPct < 0.85) {
             mBatteryLevel = BATTERY_LEVEL.HIGH;
         }
-
+        
         // Get date/time/day data
         Calendar cal = new GregorianCalendar();
         int mDayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
@@ -89,6 +96,8 @@ public class ContextService extends JobService {
             mTimeOfDay = DAY_PERIOD.EVENING;
         }
 
+        Log.i("ContextService", "The hour is: " + Integer.toString(mDayOfWeek));
+
         // TODO - deal with cell ID and location area code
 
         return false;
@@ -96,18 +105,21 @@ public class ContextService extends JobService {
 
     @Override
     public boolean onStopJob(JobParameters jobParameters) {
-        unregisterReceiver(mWifiReceiver);
+        getApplicationContext().unregisterReceiver(mWifiReceiver);
 
-        // TODO - send data to database
-
-        Logger.getAnonymousLogger().log(Level.INFO, "The hour is: " + Integer.toString(mDayOfWeek));
-
+        // Schedule another job
         return false;
     }
 
     public void wifiScanComplete() {
+        getApplicationContext().unregisterReceiver(mWifiReceiver);
+
         List<ScanResult> results = mWifiManager.getScanResults();
         // TODO - extract scan results that we need
+
+        Log.i("ContextService", "Got Wifi data");
+
+        jobFinished(mParams, false);
     }
 
 
