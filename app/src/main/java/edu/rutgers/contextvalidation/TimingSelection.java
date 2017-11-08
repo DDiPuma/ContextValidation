@@ -29,9 +29,9 @@ public class TimingSelection extends AppCompatActivity {
         jobScheduler.schedule(jobInfo);
     }
 
-    // TODO - Deal with persistent job schedule settings?
+    // TODO - Deal with persistent job schedule settings
 
-    // TODO - Set up button listeners which schedule the job
+    // TODO - Set up button listeners which schedule the job at a user configurable interval
 
-    // TODO - create classes for database, data, cell location, etc.
+    // TODO - create classes for database and database rows
 }

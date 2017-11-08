@@ -75,7 +75,7 @@ public class ContextService extends JobService {
         else if (batteryPct < 0.85) {
             mBatteryLevel = BATTERY_LEVEL.HIGH;
         }
-        
+
         // Get date/time/day data
         Calendar cal = new GregorianCalendar();
         int mDayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
@@ -96,7 +96,7 @@ public class ContextService extends JobService {
             mTimeOfDay = DAY_PERIOD.EVENING;
         }
 
-        Log.i("ContextService", "The hour is: " + Integer.toString(mDayOfWeek));
+        Log.i("ContextService", "Battery level is: " + Float.toString(batteryPct));
 
         // TODO - deal with cell ID and location area code
 
@@ -115,9 +115,22 @@ public class ContextService extends JobService {
         getApplicationContext().unregisterReceiver(mWifiReceiver);
 
         List<ScanResult> results = mWifiManager.getScanResults();
-        // TODO - extract scan results that we need
+        for (int i = 0; i < results.size(); ++i) {
+            String macAddress;
+            int rssi;
 
-        Log.i("ContextService", "Got Wifi data");
+            ScanResult result = results.get(i);
+            if (result != null) {
+                macAddress = result.BSSID;
+                rssi = result.level;
+            } else {
+                macAddress = null;
+                rssi = 0;
+            }
+
+            Log.i("ContextService", "MAC Address: " + macAddress + ", RSSI: " + Integer.toString(rssi));
+        }
+        // TODO - store scan data
 
         jobFinished(mParams, false);
     }
