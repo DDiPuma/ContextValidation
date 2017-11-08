@@ -111,7 +111,7 @@ public class ContextService extends JobService {
         return false;
     }
 
-    public void wifiScanComplete() {
+    private void wifiScanComplete() {
         getApplicationContext().unregisterReceiver(mWifiReceiver);
 
         List<ScanResult> results = mWifiManager.getScanResults();
@@ -130,6 +130,7 @@ public class ContextService extends JobService {
 
             Log.i("ContextService", "MAC Address: " + macAddress + ", RSSI: " + Integer.toString(rssi));
         }
+
         // TODO - store scan data
 
         jobFinished(mParams, false);
