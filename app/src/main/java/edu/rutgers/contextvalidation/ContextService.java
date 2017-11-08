@@ -9,6 +9,16 @@ import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
+import android.telephony.CellIdentityCdma;
+import android.telephony.CellIdentityGsm;
+import android.telephony.CellIdentityLte;
+import android.telephony.CellIdentityWcdma;
+import android.telephony.CellInfo;
+import android.telephony.CellInfoCdma;
+import android.telephony.CellInfoGsm;
+import android.telephony.CellInfoLte;
+import android.telephony.CellInfoWcdma;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import java.util.Calendar;
@@ -48,7 +58,7 @@ public class ContextService extends JobService {
 
         mParams = jobParameters;
 
-        mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        mWifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
         Log.i("ContextService", "Starting job");
 
@@ -96,9 +106,39 @@ public class ContextService extends JobService {
             mTimeOfDay = DAY_PERIOD.EVENING;
         }
 
-        Log.i("ContextService", "Battery level is: " + Float.toString(batteryPct));
+        // TODO - properly handle permission checking
+        try {
+            TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().
+                    getSystemService(Context.TELEPHONY_SERVICE);
+            List<CellInfo> cellInfos = telephonyManager.getAllCellInfo();
+            Log.i("ContextService", "Found cells: " + Integer.toString(cellInfos.size()));
 
-        // TODO - deal with cell ID and location area code
+
+            for (int i = 0; i < cellInfos.size(); ++i) {
+                CellInfo ci = cellInfos.get(i);
+                Class c = cellInfos.get(i).getClass();
+
+                if (c.equals(CellInfoGsm.class)) {
+                    CellIdentityGsm cellIdentity = ((CellInfoGsm) ci).getCellIdentity();
+                    Log.i("ContextService", "GSM: " + Integer.toString(cellIdentity.getCid()));
+                } else if (c.equals(CellInfoCdma.class)) {
+                    CellIdentityCdma cellIdentity = ((CellInfoCdma) ci).getCellIdentity();
+                    Log.i("ContextService", "CDMA: " + Integer.toString(cellIdentity.getNetworkId()));
+                } else if (c.equals(CellInfoLte.class)) {
+                    CellIdentityLte cellIdentity = ((CellInfoLte) ci).getCellIdentity();
+                    Log.i("ContextService", "LTE: " + Integer.toString(cellIdentity.getCi()));
+                } else if (c.equals(CellInfoWcdma.class)) {
+                    CellIdentityWcdma cellIdentity = ((CellInfoWcdma) ci).getCellIdentity();
+                    Log.i("ContextService", "WCDMA: " + Integer.toString(cellIdentity.getCid()));
+                } else {
+                    Log.i("ContextService", "Unknown Cell Type");
+                }
+            }
+        } catch (Exception e) {
+            Log.d("ContextService", e.getMessage());
+        }
+
+        // TODO - store Cell ID and LAC (or appropriate data for CDMA networks?)
 
         return false;
     }
@@ -131,7 +171,7 @@ public class ContextService extends JobService {
             Log.i("ContextService", "MAC Address: " + macAddress + ", RSSI: " + Integer.toString(rssi));
         }
 
-        // TODO - store scan data
+        // TODO - store wifi data
 
         jobFinished(mParams, false);
     }
