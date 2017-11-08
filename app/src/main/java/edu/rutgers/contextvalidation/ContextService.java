@@ -1,14 +1,17 @@
 package edu.rutgers.contextvalidation;
 
+import android.Manifest;
 import android.app.job.JobParameters;
 import android.app.job.JobService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
+import android.support.v4.app.ActivityCompat;
 import android.telephony.CellIdentityCdma;
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellIdentityLte;
@@ -78,11 +81,9 @@ public class ContextService extends JobService {
 
         if (batteryPct < 0.35) {
             mBatteryLevel = BATTERY_LEVEL.LOW;
-        }
-        else if (batteryPct < 0.65) {
+        } else if (batteryPct < 0.65) {
             mBatteryLevel = BATTERY_LEVEL.MEDIUM;
-        }
-        else if (batteryPct < 0.85) {
+        } else if (batteryPct < 0.85) {
             mBatteryLevel = BATTERY_LEVEL.HIGH;
         }
 
@@ -95,21 +96,17 @@ public class ContextService extends JobService {
 
         if (hour >= 7 && hour < 11) {
             mTimeOfDay = DAY_PERIOD.MORNING;
-        }
-        else if (hour >= 11 && hour < 13) {
+        } else if (hour >= 11 && hour < 13) {
             mTimeOfDay = DAY_PERIOD.NOON;
-        }
-        else if (hour >= 13 && hour < 18) {
+        } else if (hour >= 13 && hour < 18) {
             mTimeOfDay = DAY_PERIOD.AFTERNOON;
-        }
-        else if (hour >= 18 && hour < 21) {
+        } else if (hour >= 18 && hour < 21) {
             mTimeOfDay = DAY_PERIOD.EVENING;
         }
 
-        // TODO - properly handle permission checking
-        try {
-            TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().
-                    getSystemService(Context.TELEPHONY_SERVICE);
+        TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().
+                getSystemService(Context.TELEPHONY_SERVICE);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             List<CellInfo> cellInfos = telephonyManager.getAllCellInfo();
             Log.i("ContextService", "Found cells: " + Integer.toString(cellInfos.size()));
 
@@ -134,8 +131,6 @@ public class ContextService extends JobService {
                     Log.i("ContextService", "Unknown Cell Type");
                 }
             }
-        } catch (Exception e) {
-            Log.d("ContextService", e.getMessage());
         }
 
         // TODO - store Cell ID and LAC (or appropriate data for CDMA networks?)
