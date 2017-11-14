@@ -3,6 +3,7 @@ package edu.rutgers.contextvalidation;
 import android.Manifest;
 import android.app.job.JobParameters;
 import android.app.job.JobService;
+import android.arch.persistence.room.Room;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -33,12 +34,8 @@ public class ContextService extends JobService {
     private IntentFilter mWifiScanFilter;
     private WifiManager mWifiManager;
 
-    private boolean mIsWifiDataAvailable;
-
-    private int mChargeStatus;
-    private BATTERY_LEVEL mBatteryLevel;
-    private int mDayOfWeek;
-    private DAY_PERIOD mTimeOfDay;
+    private ContextDatabase db;
+    private ContextFeatures features;
 
     private JobParameters mParams;
 
@@ -52,12 +49,6 @@ public class ContextService extends JobService {
         };
         mWifiScanFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
 
-        // Null out all data
-        mIsWifiDataAvailable = false;
-        mChargeStatus = -1;
-        mBatteryLevel = BATTERY_LEVEL.INVALID;
-        mDayOfWeek = -1;
-        mTimeOfDay = DAY_PERIOD.INVALID;
 
         mParams = jobParameters;
 
@@ -69,71 +60,122 @@ public class ContextService extends JobService {
         getApplicationContext().registerReceiver(mWifiReceiver, mWifiScanFilter);
         mWifiManager.startScan();
 
+        // Open the database
+        db = Room.databaseBuilder(getApplicationContext(),
+                ContextDatabase.class, "context-database").allowMainThreadQueries().build();
+        // Generate a new database row
+        features = new ContextFeatures();
+
         // Get battery data
         IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         Intent batteryStatus = getApplicationContext().registerReceiver(null, ifilter);
-        int mChargeStatus = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        features.batteryState = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
         int batLevel = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         int batScale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
         float batteryPct = batLevel / (float) batScale;
 
-        BATTERY_LEVEL mBatteryLevel = BATTERY_LEVEL.FULL;
+        features.batteryLevel = BATTERY_LEVEL.FULL.ordinal();
 
         if (batteryPct < 0.35) {
-            mBatteryLevel = BATTERY_LEVEL.LOW;
+            features.batteryLevel = BATTERY_LEVEL.LOW.ordinal();
         } else if (batteryPct < 0.65) {
-            mBatteryLevel = BATTERY_LEVEL.MEDIUM;
+            features.batteryLevel = BATTERY_LEVEL.MEDIUM.ordinal();
         } else if (batteryPct < 0.85) {
-            mBatteryLevel = BATTERY_LEVEL.HIGH;
+            features.batteryLevel = BATTERY_LEVEL.HIGH.ordinal();
         }
 
         // Get date/time/day data
         Calendar cal = new GregorianCalendar();
-        int mDayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
+        features.dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
 
-        DAY_PERIOD mTimeOfDay = DAY_PERIOD.NIGHT;
+        features.timeOfDay = DAY_PERIOD.NIGHT.ordinal();
 
         if (hour >= 7 && hour < 11) {
-            mTimeOfDay = DAY_PERIOD.MORNING;
+            features.timeOfDay = DAY_PERIOD.MORNING.ordinal();
         } else if (hour >= 11 && hour < 13) {
-            mTimeOfDay = DAY_PERIOD.NOON;
+            features.timeOfDay = DAY_PERIOD.NOON.ordinal();
         } else if (hour >= 13 && hour < 18) {
-            mTimeOfDay = DAY_PERIOD.AFTERNOON;
+            features.timeOfDay = DAY_PERIOD.AFTERNOON.ordinal();
         } else if (hour >= 18 && hour < 21) {
-            mTimeOfDay = DAY_PERIOD.EVENING;
+            features.timeOfDay = DAY_PERIOD.EVENING.ordinal();
         }
 
         TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().
                 getSystemService(Context.TELEPHONY_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             List<CellInfo> cellInfos = telephonyManager.getAllCellInfo();
-            Log.i("ContextService", "Found cells: " + Integer.toString(cellInfos.size()));
 
-
-            for (int i = 0; i < cellInfos.size(); ++i) {
+            for (int i = 0; i < cellInfos.size() && i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
                 CellInfo ci = cellInfos.get(i);
                 Class c = cellInfos.get(i).getClass();
 
+                int networkType = NETWORK_TYPE.NONE.ordinal();
+                int cellId = 0;
+                int locationAreaCode = 0;
+                int networkId = 0;
+                int basestationId = 0;
+                int systemId = 0;
+
                 if (c.equals(CellInfoGsm.class)) {
-                    CellIdentityGsm cellIdentity = ((CellInfoGsm) ci).getCellIdentity();
-                    Log.i("ContextService", "GSM: " + Integer.toString(cellIdentity.getCid()));
+                    CellInfoGsm cellInfo = (CellInfoGsm) ci;
+                    CellIdentityGsm cellIdentity = cellInfo.getCellIdentity();
+
+                    networkType = NETWORK_TYPE.GSM.ordinal();
+                    cellId = cellIdentity.getCid();
+                    locationAreaCode = cellIdentity.getLac();
+
                 } else if (c.equals(CellInfoCdma.class)) {
-                    CellIdentityCdma cellIdentity = ((CellInfoCdma) ci).getCellIdentity();
-                    Log.i("ContextService", "CDMA: " + Integer.toString(cellIdentity.getNetworkId()));
+                    CellInfoCdma cellInfo = (CellInfoCdma) ci;
+                    CellIdentityCdma cellIdentity = cellInfo.getCellIdentity();
+
+                    networkType = NETWORK_TYPE.CDMA.ordinal();
+                    networkId = cellIdentity.getNetworkId();
+                    basestationId = cellIdentity.getBasestationId();
+                    systemId = cellIdentity.getSystemId();
+
                 } else if (c.equals(CellInfoLte.class)) {
-                    CellIdentityLte cellIdentity = ((CellInfoLte) ci).getCellIdentity();
-                    Log.i("ContextService", "LTE: " + Integer.toString(cellIdentity.getCi()));
+                    CellInfoLte cellInfo = (CellInfoLte) ci;
+                    CellIdentityLte cellIdentity = cellInfo.getCellIdentity();
+
+                    networkType = NETWORK_TYPE.LTE.ordinal();
+                    cellId = cellIdentity.getCi();
+
                 } else if (c.equals(CellInfoWcdma.class)) {
-                    CellIdentityWcdma cellIdentity = ((CellInfoWcdma) ci).getCellIdentity();
-                    Log.i("ContextService", "WCDMA: " + Integer.toString(cellIdentity.getCid()));
-                } else {
-                    Log.i("ContextService", "Unknown Cell Type");
+                    CellInfoWcdma cellInfo = (CellInfoWcdma) ci;
+                    CellIdentityWcdma cellIdentity = cellInfo.getCellIdentity();
+
+                    networkType = NETWORK_TYPE.WCDMA.ordinal();
+                    cellId = cellIdentity.getCid();
+                    locationAreaCode = cellIdentity.getLac();
+
                 }
+
+                CellNetwork newNetwork = new CellNetwork();
+                newNetwork.bid = basestationId;
+                newNetwork.cid = cellId;
+                newNetwork.lac = locationAreaCode;
+                newNetwork.networkType = networkType;
+                newNetwork.nid = networkId;
+                newNetwork.sid = systemId;
+
+                features.setCellNetwork(i, newNetwork);
+            }
+
+            // Fill in the rest of the database with empty networks
+            for (int i = cellInfos.size(); i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
+                CellNetwork nullNetwork = new CellNetwork();
+
+                nullNetwork.bid = 0;
+                nullNetwork.cid = 0;
+                nullNetwork.lac = 0;
+                nullNetwork.networkType = NETWORK_TYPE.NONE.ordinal();
+                nullNetwork.nid = 0;
+                nullNetwork.sid = 0;
+
+                features.setCellNetwork(i, nullNetwork);
             }
         }
-
-        // TODO - store Cell ID and LAC (or appropriate data for CDMA networks?)
 
         return false;
     }
@@ -150,7 +192,7 @@ public class ContextService extends JobService {
         getApplicationContext().unregisterReceiver(mWifiReceiver);
 
         List<ScanResult> results = mWifiManager.getScanResults();
-        for (int i = 0; i < results.size(); ++i) {
+        for (int i = 0; i < results.size() && i < Constants.MAXIMUM_WIFI_NETWORKS; ++i) {
             String macAddress;
             int rssi;
 
@@ -159,14 +201,28 @@ public class ContextService extends JobService {
                 macAddress = result.BSSID;
                 rssi = result.level;
             } else {
-                macAddress = null;
+                macAddress = "";
                 rssi = 0;
             }
 
-            Log.i("ContextService", "MAC Address: " + macAddress + ", RSSI: " + Integer.toString(rssi));
+            WifiNetwork newNetwork = new WifiNetwork();
+            newNetwork.macAddress = macAddress;
+            newNetwork.rssi = rssi;
+
+            features.setWifiNetwork(i, newNetwork);
+        }
+        for (int i = results.size(); i < Constants.MAXIMUM_WIFI_NETWORKS; ++i) {
+            WifiNetwork nullNetwork = new WifiNetwork();
+            nullNetwork.macAddress = "";
+            nullNetwork.rssi = 0;
+
+            features.setWifiNetwork(i, nullNetwork);
         }
 
-        // TODO - store wifi data
+        // Finally, we can store to the database
+        db.contextDao().insertContextFeatures(features);
+
+        Log.i("ContextService", "Finished storing to database!");
 
         jobFinished(mParams, false);
     }
