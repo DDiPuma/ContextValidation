@@ -12,8 +12,8 @@ import android.arch.persistence.room.PrimaryKey;
 
 @Entity
 class ContextFeatures {
-    @PrimaryKey(autoGenerate = true)
-    public int id;
+    @PrimaryKey
+    public long timestamp;
 
     @ColumnInfo(name = "day_of_week")
     public int dayOfWeek;
@@ -27,6 +27,10 @@ class ContextFeatures {
     @ColumnInfo(name = "battery_level")
     public int batteryLevel;
 
+    @Embedded
+    WifiNetwork wifiNetwork;
+
+    /*
     // We can't store arrays in a database
     // I hate this, but there's no better way without serializing and that's going to cause
     // problems
@@ -169,7 +173,12 @@ class ContextFeatures {
                 return null;
         }
     }
+    */
 
+    @Embedded
+    CellNetwork cellNetwork;
+
+    /*
     @Embedded(prefix = "cell0")
     CellNetwork cellNetwork0;
 
@@ -272,6 +281,8 @@ class ContextFeatures {
     }
 
     public CellNetwork getCellNetwork(int i) {
+        return cellNetwork;
+        /*
         switch (i) {
             case 0:
                 return cellNetwork0;
@@ -309,6 +320,7 @@ class ContextFeatures {
                 return null;
         }
     }
+    */
 }
 
 @Entity

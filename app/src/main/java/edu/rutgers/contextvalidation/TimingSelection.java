@@ -18,7 +18,7 @@ public class TimingSelection extends AppCompatActivity {
 
     private final static int PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 0;
 
-    private final static int MINUTES_TO_RUN = 15;
+    private final static int MINUTES_TO_RUN = 5;
     private final static int MILLIS_PER_MINUTE = 60 * 1000;
 
     @Override
@@ -67,6 +67,4 @@ public class TimingSelection extends AppCompatActivity {
             }
         }
     }
-
-    // TODO - create classes for database and database rows
 }

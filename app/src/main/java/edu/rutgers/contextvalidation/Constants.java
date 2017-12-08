@@ -6,6 +6,6 @@ package edu.rutgers.contextvalidation;
 
 class Constants {
     private Constants() {}
-    public static final int MAXIMUM_WIFI_NETWORKS = 16;
-    public static int MAXIMUM_CELL_NETWORKS = 16;
+    public static final int MAXIMUM_WIFI_NETWORKS = 1;
+    public static int MAXIMUM_CELL_NETWORKS = 1;
 }

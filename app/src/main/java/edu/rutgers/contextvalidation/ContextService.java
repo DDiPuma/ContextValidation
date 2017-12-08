@@ -86,6 +86,9 @@ public class ContextService extends JobService {
 
         // Get date/time/day data
         Calendar cal = new GregorianCalendar();
+
+        features.timestamp = cal.getTime().getTime();
+
         features.dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
 
@@ -101,12 +104,16 @@ public class ContextService extends JobService {
             features.timeOfDay = DAY_PERIOD.EVENING.ordinal();
         }
 
+        // Assume there are no cell towers (this protects us from having no access to location data)
+        int numberOfCellTowers = 0;
+
         TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().
                 getSystemService(Context.TELEPHONY_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             List<CellInfo> cellInfos = telephonyManager.getAllCellInfo();
+            numberOfCellTowers = cellInfos.size();
 
-            for (int i = 0; i < cellInfos.size() && i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
+            for (int i = 0; i < numberOfCellTowers && i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
                 CellInfo ci = cellInfos.get(i);
                 Class c = cellInfos.get(i).getClass();
 
@@ -159,22 +166,26 @@ public class ContextService extends JobService {
                 newNetwork.nid = networkId;
                 newNetwork.sid = systemId;
 
-                features.setCellNetwork(i, newNetwork);
+                features.cellNetwork = newNetwork;
+
+                //features.setCellNetwork(i, newNetwork);
             }
+        }
 
-            // Fill in the rest of the database with empty networks
-            for (int i = cellInfos.size(); i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
-                CellNetwork nullNetwork = new CellNetwork();
+        // Fill in the rest of the database with empty networks
+        for (int i = numberOfCellTowers; i < Constants.MAXIMUM_CELL_NETWORKS; ++i) {
+            CellNetwork nullNetwork = new CellNetwork();
 
-                nullNetwork.bid = 0;
-                nullNetwork.cid = 0;
-                nullNetwork.lac = 0;
-                nullNetwork.networkType = NETWORK_TYPE.NONE.ordinal();
-                nullNetwork.nid = 0;
-                nullNetwork.sid = 0;
+            nullNetwork.bid = 0;
+            nullNetwork.cid = 0;
+            nullNetwork.lac = 0;
+            nullNetwork.networkType = NETWORK_TYPE.NONE.ordinal();
+            nullNetwork.nid = 0;
+            nullNetwork.sid = 0;
 
-                features.setCellNetwork(i, nullNetwork);
-            }
+            features.cellNetwork = nullNetwork;
+
+            //features.setCellNetwork(i, nullNetwork);
         }
 
         return false;
@@ -209,14 +220,18 @@ public class ContextService extends JobService {
             newNetwork.macAddress = macAddress;
             newNetwork.rssi = rssi;
 
-            features.setWifiNetwork(i, newNetwork);
+            features.wifiNetwork = newNetwork;
+
+            //features.setWifiNetwork(i, newNetwork);
         }
         for (int i = results.size(); i < Constants.MAXIMUM_WIFI_NETWORKS; ++i) {
             WifiNetwork nullNetwork = new WifiNetwork();
             nullNetwork.macAddress = "";
             nullNetwork.rssi = 0;
 
-            features.setWifiNetwork(i, nullNetwork);
+            features.wifiNetwork = nullNetwork;
+
+            //features.setWifiNetwork(i, nullNetwork);
         }
 
         // Finally, we can store to the database
